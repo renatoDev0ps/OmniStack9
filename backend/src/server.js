@@ -3,9 +3,14 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 
+const socketio = require('socket.io');
+const http = require('http');
+
 const routes = require('./routes');
 
 const app = express();
+const server = http.Server(app);
+const io = socketio(server);
 
 mongoose.connect('mongodb://root:mongodb@localhost:27017/week9?authSource=admin', {
   useUnifiedTopology: true,
@@ -14,10 +19,25 @@ mongoose.connect('mongodb://root:mongodb@localhost:27017/week9?authSource=admin'
   useCreateIndex: true
 });
 
+const connectedUsers = {};
+
+io.on('connection', socket => {
+  const { user_id } = socket.handshake.query;
+
+  connectedUsers[user_id] = socket.id;
+});
+
+app.use((req, res, next) => {
+  req.io = io;
+  req.connectedUsers = connectedUsers;
+
+  return next();
+});
+
 //app.use(cors({ origin: 'http: 192.168.2.18 }))
 app.use(cors());
 app.use(express.json());
 app.use('/files', express.static(path.resolve(__dirname, '..' , 'uploads')));
 app.use(routes);
 
-app.listen(3001);
+server.listen(3001);
